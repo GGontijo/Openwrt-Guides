@@ -1,0 +1,58 @@
+Imagem modificada, como criar:
+Precisa ser em um ubuntu 18.4, após isso baixar a imagem (https://archive.openwrt.org/snapshots/trunk/ar71xx/generic/OpenWrt-ImageBuilder-ar71xx-generic.Linux-x86_64.tar.bz2)
+e os pacotes dependentes (https://openwrt.org/docs/guide-user/additional-software/imagebuilder)
+
+sudo apt install build-essential libncurses5-dev libncursesw5-dev \
+zlib1g-dev gawk git gettext libssl-dev xsltproc rsync wget unzip python
+
+tar -J -x -f openwrt-imagebuilder-*.tar.xz
+cd openwrt-imagebuilder-*/
+
+
+make image PROFILE=TLMR3220 PACKAGES=' -ppp -ppp-mod-pppoe -ip6tables -odhcp6c -kmod-ipv6 -kmod-ip6tables kmod-usb-storage kmod-fs-ext4 block-mount kmod-mtd-rw swap-utils'
+
+Depois disso subir a imagem (openwrt-ar71xx-generic-tl-mr3220-v1-squashfs-sysupgrade.bin) via ssh e rodar: sysupgrade -n imagem.bin
+
+Depois disso, fazer exroot. Formatar o pendrive em ext4 (Formatar sempre que n der certo pq no meio do processo salva dados nele e se
+der errado ele não vai funcionar).
+
+rodar esses comandos (https://openwrt.org/docs/guide-user/additional-software/extroot_configuration):
+
+
+"essa parte é pra manter um backup de mount pra reconfigurar o exroot caso necessário":
+DEVICE="$(sed -n -e "/\s\/overlay\s.*$/s///p" /etc/mtab)"
+uci -q delete fstab.rwm
+uci set fstab.rwm="mount"
+uci set fstab.rwm.device="${DEVICE}"
+uci set fstab.rwm.target="/rwm"
+uci commit fstab
+
+block info
+
+DEVICE="/dev/sda1" --conforme o block info
+
+eval $(block info ${DEVICE} | grep -o -e "UUID=\S*")
+uci -q delete fstab.overlay
+uci set fstab.overlay="mount"
+uci set fstab.overlay.uuid="${UUID}"
+uci set fstab.overlay.target="/overlay"
+uci commit fstab
+
+
+mkdir -p /tmp/cproot
+mount --bind /overlay /tmp/cproot -- se der erro aqui "too large" é por conta do aviso ali em cima de formatar o pendrive.
+mount ${DEVICE} /mnt
+tar -C /tmp/cproot -cvf - . | tar -C /mnt -xf -
+umount /tmp/cproot /mnt
+reboot
+
+Após isso o df é pra mostrar um free space bem diferente.
+
+
+
+misc:
+https://forum.openwrt.org/t/d-link-2750b-ver-b1-art-backup-needed/90933/6
+https://github.com/gwlim/art-radio/blob/master/Other%20Collected%20ART%20partitions%20UNTESTED/art-ar9285.bin
+https://stackoverflow.com/questions/34112053/openwrt-cant-install-packages-memory-issue
+http://luizluca.blogspot.com/2013/05/openwrt-configurando-memoria-swap.html
+
